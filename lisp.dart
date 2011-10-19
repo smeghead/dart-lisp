@@ -153,14 +153,22 @@ ResultObj buildSexp(List<String> list, ResultObj nesting) {
 				ret.step = 1;
 			} else {
 				//Listの継続の場合は、リスト要素の追加
-				nesting.o.r = new ConsCell();
-				nesting.o.r.l = new Atom.withValue(elm);
-				nesting.o.r.r = new Nil();
+				ConsCell last = lastCons(nesting.o);
+				last.r = new ConsCell();
+				last.r.l = new Atom.withValue(elm);
+				last.r.r = new Nil();
 				return buildSexp(new List<String>.fromList(list, 1, list.length), nesting);
 			}
 			break;
 	}
 	return ret;
+}
+
+ConsCell lastCons(ConsCell cons) {
+	if (cons.r.toString() == 'nil') {
+		return cons;
+	}
+	return lastCons(cons.r);
 }
 
 main() {
@@ -205,8 +213,13 @@ main() {
 	lispObjects = l.readSexp('(a b)');
 	for (Obj e in lispObjects) {
 		Obj e1 = l.evalSexp(e);
-		print(l.stringSexp(e1));
 		print(l.stringSexp(e1) == '(a . (b . nil))');
+	}
+
+	lispObjects = l.readSexp('(a b c)');
+	for (Obj e in lispObjects) {
+		Obj e1 = l.evalSexp(e);
+		print(l.stringSexp(e1) == '(a . (b . (c . nil)))');
 	}
 
 	print('main end');
