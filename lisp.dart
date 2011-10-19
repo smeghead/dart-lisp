@@ -76,7 +76,7 @@ class Lisp {
 		}
 
 		//build syntax tree.
-		ResultObj syntaxTree = buildSexp(lexList);
+		var syntaxTree = buildSexp(lexList, null);
 		var ret = new List<Obj>();
 		ret.add(syntaxTree.o);
 		return ret;
@@ -98,41 +98,66 @@ class ResultObj {
 	int step = 0;
 }
 
-ResultObj buildSexp(List<String> list) {
+ResultObj buildSexp(List<String> list, ResultObj nesting) {
+	//debug
+	//var x = ' ';
+	//for (var e in list) {
+	//	x += e + ' ';
+	//}
+	//print('buildSexp: ' + x);
+
 	ResultObj ret = new ResultObj();
 	switch (list[0]) {
 		case '(':
 			int i = 1;
 			//先頭が(ならConsCellを返す
 			ret.o = new ConsCell();
-			ResultObj left = buildSexp(new List<String>.fromList(list, 1, list.length - 2));
+			ResultObj left = buildSexp(new List<String>.fromList(list, 1, list.length), null);
 			i += left.step;
 			ret.o.l = left.o;
-			if (list[i] != '.') {
-				//not cons cell. error.
-				throw new Exception('syntax error. excepted . appear ' + list[i]);
+			if (list[i] == '.') { //次の要素をチェックする
+				//ConsCell
+				i += 1;
+				ResultObj right = buildSexp(new List<String>.fromList(list, i, list.length), null);
+				i += right.step;
+				ret.o.r = right.o;
+				if (list[i] != ')') {
+					//not cons cell. error.
+					throw new Exception('syntax error. excepted ) appear ' + list[i]);
+				}
+				ret.step = i + 1;
+			} else {
+				//List
+				ret.o.r = new Nil();
+				ResultObj right = buildSexp(new List<String>.fromList(list, i, list.length), ret);
+				ret.o = right.o;
+				ret.step += right.step;
 			}
-			i += 1;
-			ResultObj right = buildSexp(new List<String>.fromList(list, i, list.length - 1));
-			i += right.step;
-			ret.o.r = right.o;
-			if (list[i] != ')') {
-				//not cons cell. error.
-				throw new Exception('syntax error. excepted ) appear ' + list[i]);
-			}
-			ret.step = i + 1;
 			break;
 		case ')':
+			if (nesting != null) {
+				nesting.step += 1;
+				return nesting;
+			}
 		case '.':
 			break;
 		default:
-			//先頭が(以外ならAtomを返す
-			if (list[0] == 'nil') {
-				ret.o = new Nil();
+			var elm = list[0];
+			if (nesting == null) {
+				//先頭が(以外ならAtomを返す
+				if (elm == 'nil') {
+					ret.o = new Nil();
+				} else {
+					ret.o = new Atom.withValue(elm);
+				}
+				ret.step = 1;
 			} else {
-				ret.o = new Atom.withValue(list[0]);
+				//Listの継続の場合は、リスト要素の追加
+				nesting.o.r = new ConsCell();
+				nesting.o.r.l = new Atom.withValue(elm);
+				nesting.o.r.r = new Nil();
+				return buildSexp(new List<String>.fromList(list, 1, list.length), nesting);
 			}
-			ret.step = 1;
 			break;
 	}
 	return ret;
@@ -175,6 +200,13 @@ main() {
 	for (Obj e in lispObjects) {
 		Obj e1 = l.evalSexp(e);
 		print(l.stringSexp(e1) == '((a . b) . c)');
+	}
+
+	lispObjects = l.readSexp('(a b)');
+	for (Obj e in lispObjects) {
+		Obj e1 = l.evalSexp(e);
+		print(l.stringSexp(e1));
+		print(l.stringSexp(e1) == '(a . (b . nil))');
 	}
 
 	print('main end');
